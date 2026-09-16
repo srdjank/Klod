@@ -2,8 +2,9 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>ioi default world</title>
-<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style>
+<style>html,body{margin:0;background:#000;overflow:hidden;overscroll-behavior:none}canvas{display:block;touch-action:none;-webkit-user-select:none;user-select:none}</style>
 <script type="importmap">
 {"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}
 </script>
@@ -264,6 +265,7 @@ function step(dt) {
   camera.rotation.set(pitch, yaw, 0);
 }
 
+window.__cam = () => ({ x: +camera.position.x.toFixed(2), z: +camera.position.z.toFixed(2), yaw: +yaw.toFixed(2) });
 let frames = 0;
 function loop() {
   step(Math.min(clock.getDelta(), 0.05));

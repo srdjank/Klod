@@ -1,0 +1,236 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ioi default world</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">
+{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ---------- mock stream (what the hub would send for one dir) ----------
+const dir = { id: 'd:/local/home/srdjan', name: 'srdjan', dirs: 3, items: 12 };
+const subdirs = [
+  { name: 'src',      dirs: 4, items: 31,  wall: 'far',   at: -6 },
+  { name: 'Pictures', dirs: 6, items: 812, wall: 'far',   at:  6 },
+  { name: 'Viber',    dirs: 2, items: 140, wall: 'right', at: -8 },
+];
+// category, weight, group (month), public, heat, annotations (popularity list)
+const items = [
+  ['README.md',           'document', 0.40, '2026-09', false, 0.2, []],
+  ['fortress.mp4',        'video',    0.95, '2026-09', true,  0.9, [0.95, 0.4, 0.2]],
+  ['IMG-2026-09-01.jpg',  'image',    0.60, '2026-09', false, 0.3, [0.3]],
+  ['IMG-2026-09-03.jpg',  'image',    0.50, '2026-09', true,  0.6, []],
+  ['notes.pdf',           'document', 0.50, '2026-08', false, 0.1, []],
+  ['trip.mp4',            'video',    0.70, '2026-08', true,  0.5, [0.5, 0.2]],
+  ['IMG-2026-08-12.jpg',  'image',    0.75, '2026-08', false, 0.4, []],
+  ['IMG-2026-08-14.jpg',  'image',    0.40, '2026-08', false, 0.1, []],
+  ['invoice.pdf',         'document', 0.30, '2026-07', false, 0.0, []],
+  ['IMG-2026-07-02.jpg',  'image',    0.55, '2026-07', false, 0.1, []],
+  ['IMG-2026-07-09.jpg',  'image',    0.65, '2026-07', true,  0.2, [0.15]],
+  ['backup.zip',          'archive',  0.85, '2026-07', false, 0.0, []],
+];
+
+// ---------- palette (Tron default world) ----------
+const CYAN = new THREE.Color(0x19e6ff);
+const ORANGE = new THREE.Color(0xff7a1a);
+const GRID = new THREE.Color(0x0a4a5c);
+const GRID_MAJOR = new THREE.Color(0x0f7a92);
+const FACE = 0x04070c;
+
+// ---------- scene ----------
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+scene.fog = new THREE.Fog(0x000000, 8, 46);
+
+const camera = new THREE.PerspectiveCamera(75, W / H, 0.05, 200);
+camera.position.set(0.8, 1.6, -0.6);
+camera.lookAt(-0.4, 0.9, -12);
+
+// room bounds: x in [-12,12], z in [0,-16], door wall at z=0 (behind the camera)
+const RW = 24, RD = 16, RH = 3.2;
+
+// floor
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, -RD / 2); scene.add(floor);
+
+// emissive grid
+function grid(step, color, y) {
+  const pts = [];
+  for (let x = -RW / 2; x <= RW / 2 + 1e-6; x += step) pts.push(x, y, 0, x, y, -RD);
+  for (let z = 0; z >= -RD - 1e-6; z -= step) pts.push(-RW / 2, y, z, RW / 2, y, z);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color })));
+}
+grid(1, GRID, 0.004);
+grid(4, GRID_MAJOR, 0.006);
+
+// walls: dark faces + glowing top and bottom edges
+function wall(w, h, pos, rotY) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: FACE, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }));
+  m.position.copy(pos); m.rotation.y = rotY; scene.add(m);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: CYAN.clone().multiplyScalar(0.9) }));
+  e.position.copy(pos); e.rotation.y = rotY; scene.add(e);
+}
+wall(RW, RH, new THREE.Vector3(0, RH / 2, -RD), 0);
+wall(RD, RH, new THREE.Vector3(-RW / 2, RH / 2, -RD / 2), Math.PI / 2);
+wall(RD, RH, new THREE.Vector3(RW / 2, RH / 2, -RD / 2), -Math.PI / 2);
+wall(RW, RH, new THREE.Vector3(0, RH / 2, 0), 0);
+
+// wall grid lines (vertical, every 4 m) to give the Tron wall texture
+(function wallLines() {
+  const pts = [];
+  for (let x = -RW / 2; x <= RW / 2; x += 4) pts.push(x, 0, -RD, x, RH, -RD);
+  for (let z = 0; z >= -RD; z -= 4) { pts.push(-RW / 2, 0, z, -RW / 2, RH, z); pts.push(RW / 2, 0, z, RW / 2, RH, z); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: GRID_MAJOR })));
+})();
+
+// ---------- text signs (canvas textures) ----------
+function textPlane(lines, w, color = '#19e6ff', align = 'center') {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 256;
+  const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
+  ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillStyle = color;
+  ctx.shadowColor = color; ctx.shadowBlur = 24;
+  const x = align === 'center' ? 512 : 16;
+  ctx.font = '700 96px "DejaVu Sans", Arial, sans-serif'; ctx.fillText(lines[0], x, lines[1] ? 92 : 128);
+  if (lines[1]) { ctx.font = '400 56px "DejaVu Sans", Arial, sans-serif'; ctx.globalAlpha = 0.85; ctx.fillText(lines[1], x, 190); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 4), new THREE.MeshBasicMaterial({ map: t, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+  return m;
+}
+
+// ---------- doorways (dirs) ----------
+function doorway(d) {
+  const g = new THREE.Group();
+  const dw = 2.4, dh = 2.9;
+  // frame: glowing outline, twice for weight
+  const frame = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-dw / 2, 0, 0), new THREE.Vector3(-dw / 2, dh, 0), new THREE.Vector3(dw / 2, dh, 0), new THREE.Vector3(dw / 2, 0, 0)]);
+  const fm = new THREE.LineBasicMaterial({ color: CYAN.clone().multiplyScalar(1.6) });
+  g.add(new THREE.Line(frame, fm));
+  const inner = frame.clone(); inner.scale(0.94, 0.97, 1);
+  g.add(new THREE.Line(inner, new THREE.LineBasicMaterial({ color: CYAN.clone().multiplyScalar(0.7) })));
+  // dark opening with faint depth glow
+  const op = new THREE.Mesh(new THREE.PlaneGeometry(dw * 0.94, dh * 0.97), new THREE.MeshBasicMaterial({ color: 0x021018, side: THREE.DoubleSide }));
+  op.position.set(0, dh * 0.97 / 2, -0.01); g.add(op);
+  // threshold glow on floor
+  const th = new THREE.Mesh(new THREE.PlaneGeometry(dw, 0.9), new THREE.MeshBasicMaterial({ color: CYAN.clone().multiplyScalar(0.35), transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
+  th.rotation.x = -Math.PI / 2; th.position.set(0, 0.01, 0.45); g.add(th);
+  // sign
+  const s = textPlane([d.name, `${d.dirs} rooms · ${d.items} items`], 3.2);
+  s.position.set(0, dh + 0.55, 0.02); g.add(s);
+  if (d.wall === 'far') { g.position.set(d.at, 0, -RD + 0.02); }
+  else { g.position.set(RW / 2 - 0.02, 0, d.at); g.rotation.y = -Math.PI / 2; }
+  scene.add(g);
+}
+subdirs.forEach(doorway);
+
+// ---------- items ----------
+const groups = [...new Set(items.map(i => i[3]))].sort().reverse(); // newest first
+const bandZ = groups.map((_, i) => -5.2 - i * 4.4);              // newest nearest the door
+
+function outlined(geo, lineColor, faceColor = FACE) {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: faceColor, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 })));
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: lineColor })));
+  return g;
+}
+
+function itemMesh([name, cat, weight, group, pub, heat, anns]) {
+  const base = pub ? ORANGE : CYAN;
+  const line = base.clone().multiplyScalar(0.7 + heat * 1.6);   // heat -> glow
+  const g = new THREE.Group();
+  let top = 0;
+  if (cat === 'image') {
+    const w = 0.7 + weight * 1.0, h = w * 0.75;
+    const p = outlined(new THREE.BoxGeometry(w, h, 0.06), line, 0x060c14);
+    p.position.y = 0.55 + h / 2; g.add(p);
+    // stem
+    const stem = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.55, 0)]), new THREE.LineBasicMaterial({ color: base.clone().multiplyScalar(0.5) }));
+    g.add(stem); top = 0.55 + h;
+  } else if (cat === 'video') {
+    const w = 0.8 + weight * 1.1, h = w * 0.5625;
+    const p = outlined(new THREE.BoxGeometry(w, h, 0.06), line, 0x060c14);
+    const bh = 0.28;
+    const b = outlined(new THREE.BoxGeometry(w * 0.7, bh, 0.5), base.clone().multiplyScalar(0.9));
+    b.position.y = bh / 2; p.position.y = bh + 0.35 + h / 2; g.add(b, p);
+    // timeline on the floor in front (player contract)
+    const tl = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-w / 2, 0.012, 0.5), new THREE.Vector3(w / 2, 0.012, 0.5)]), new THREE.LineBasicMaterial({ color: base.clone().multiplyScalar(1.2) }));
+    g.add(tl); top = bh + 0.35 + h;
+  } else if (cat === 'document') {
+    const h = 0.15 + weight * 0.6;
+    const s = outlined(new THREE.BoxGeometry(0.9, h, 0.65), line); s.position.y = h / 2; g.add(s); top = h;
+  } else { // archive and other -> cube
+    const s = 0.6 + weight * 0.7;
+    const c = outlined(new THREE.BoxGeometry(s, s, s), line); c.position.y = s / 2; g.add(c); top = s;
+  }
+  // annotations: markers above the item, popularity -> glow and rise
+  anns.forEach((pop, i) => {
+    const r = 0.07 + pop * 0.06;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 12), new THREE.MeshBasicMaterial({ color: base.clone().multiplyScalar(0.8 + pop * 2.4) }));
+    const ang = (i - (anns.length - 1) / 2) * 0.55;
+    m.position.set(Math.sin(ang) * 0.5, top + 0.25 + pop * 0.9, Math.cos(ang) * 0.15);
+    g.add(m);
+    const tether = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, top, 0), m.position.clone()]), new THREE.LineBasicMaterial({ color: base.clone().multiplyScalar(0.35), transparent: true, opacity: 0.6 }));
+    g.add(tether);
+  });
+  // name etched on the floor in front
+  const lbl = textPlane([name], 1.6, pub ? '#ff7a1a' : '#19e6ff');
+  lbl.rotation.x = -Math.PI / 2; lbl.position.set(0, 0.015, 0.95); lbl.material.opacity = 0.75; g.add(lbl);
+  return g;
+}
+
+groups.forEach((grp, gi) => {
+  const row = items.filter(i => i[3] === grp);
+  const spacing = 2.9, x0 = -((row.length - 1) * spacing) / 2;
+  row.forEach((it, i) => {
+    const m = itemMesh(it);
+    m.position.set(x0 + i * spacing, 0, bandZ[gi]);
+    scene.add(m);
+  });
+  // band marker: month etched at the left wall side of the band
+  const t = textPlane([grp], 2.4, '#0f7a92', 'left');
+  t.rotation.x = -Math.PI / 2; t.position.set(-RW / 2 + 1.4, 0.015, bandZ[gi] + 1.6); scene.add(t);
+  // faint band line across the floor
+  const bl = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-RW / 2, 0.01, bandZ[gi] + 2.3), new THREE.Vector3(RW / 2, 0.01, bandZ[gi] + 2.3)]), new THREE.LineBasicMaterial({ color: GRID_MAJOR }));
+  scene.add(bl);
+});
+
+// current dir label etched on the floor just in front of the player
+const here = textPlane([`/${dir.name}`, `${dir.dirs} rooms · ${dir.items} items · 4 public`], 2.2);
+here.rotation.x = -Math.PI / 2; here.position.set(0.3, 0.02, -3.3); scene.add(here);
+
+// ---------- bloom ----------
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.9, 0.55, 0.15);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+let frames = 0;
+function loop() {
+  composer.render();
+  if (++frames >= 3) { window.__done = true; return; }
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

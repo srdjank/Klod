@@ -440,3 +440,13 @@ The model never sits in the hot path. Deterministic code produces the walkable w
 5. End-to-end encryption timing for pair and group threads.
 6. Which model, and cost controls.
 7. Whether worlds may ever carry sandboxed code.
+
+---
+
+## Appendix A. Default world, first render
+
+A static render of the default Tron world from the doorway of a mock directory, produced by `prototype/default-world.html` with the reference legend from §10. No assets were downloaded: every object is tier 0.
+
+![Default world](docs/default-world.png)
+
+What the picture encodes: doorways on the far wall are sub-directories with their counts on the sign; flat panels are images, panels on a base are videos with their timeline on the floor, low slabs are documents, the cube is an archive; size is weight; the nearest band is the newest month; cyan is private and orange is public; the spheres above items are annotations, rising and glowing with popularity.

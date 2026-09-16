@@ -1,0 +1,14 @@
+{
+  "name": "ioi-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "screenshot": "node screenshot.mjs 2400x1080 ../docs/default-world.png"
+  },
+  "dependencies": {
+    "three": "^0.186.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
+  }
+}

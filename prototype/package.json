@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node serve.mjs",
     "screenshot": "node screenshot.mjs 2400x1080 ../docs/default-world.png"
   },
   "dependencies": {

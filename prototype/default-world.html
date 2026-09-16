@@ -60,8 +60,9 @@ scene.background = new THREE.Color(0x000000);
 scene.fog = new THREE.Fog(0x000000, 8, 46);
 
 const camera = new THREE.PerspectiveCamera(75, W / H, 0.05, 200);
+camera.rotation.order = 'YXZ';
 camera.position.set(0.8, 1.6, -0.6);
-camera.lookAt(-0.4, 0.9, -12);
+let yaw = Math.atan2(1.2, 11.4), pitch = -Math.asin(0.7 / 11.5);
 
 // room bounds: x in [-12,12], z in [0,-16], door wall at z=0 (behind the camera)
 const RW = 24, RD = 16, RH = 3.2;
@@ -224,10 +225,50 @@ const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.9, 0.55, 0.15);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
+// ---------- controls: drag to look, WASD / arrows to walk, touch stick on the left half ----------
+const keys = new Set();
+addEventListener('keydown', e => keys.add(e.code));
+addEventListener('keyup', e => keys.delete(e.code));
+const cv = renderer.domElement;
+let look = null, stick = null;
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  if (e.pointerType === 'touch' && e.clientX < W / 2) stick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
+  else look = { id: e.pointerId, x: e.clientX, y: e.clientY };
+});
+cv.addEventListener('pointermove', e => {
+  if (look && e.pointerId === look.id) {
+    yaw -= (e.clientX - look.x) * 0.0035; pitch -= (e.clientY - look.y) * 0.0035;
+    pitch = Math.max(-1.3, Math.min(1.3, pitch)); look.x = e.clientX; look.y = e.clientY;
+  }
+  if (stick && e.pointerId === stick.id) { stick.dx = (e.clientX - stick.x0) / 80; stick.dy = (e.clientY - stick.y0) / 80; }
+});
+const release = e => { if (look && e.pointerId === look.id) look = null; if (stick && e.pointerId === stick.id) stick = null; };
+cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', release);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
+
+const clock = new THREE.Clock();
+function step(dt) {
+  let f = 0, r = 0;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) r += 1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) r -= 1;
+  if (stick) { f -= Math.max(-1, Math.min(1, stick.dy)); r += Math.max(-1, Math.min(1, stick.dx)); }
+  const speed = 3.5 * dt;
+  camera.position.x += (-Math.sin(yaw) * f + Math.cos(yaw) * r) * speed;
+  camera.position.z += (-Math.cos(yaw) * f - Math.sin(yaw) * r) * speed;
+  camera.position.x = Math.max(-RW / 2 + 0.4, Math.min(RW / 2 - 0.4, camera.position.x));
+  camera.position.z = Math.max(-RD + 0.4, Math.min(-0.4, camera.position.z));
+  camera.rotation.set(pitch, yaw, 0);
+}
+
 let frames = 0;
 function loop() {
+  step(Math.min(clock.getDelta(), 0.05));
   composer.render();
-  if (++frames >= 3) { window.__done = true; return; }
+  if (++frames === 3) window.__done = true;   // screenshot.mjs waits for this
   requestAnimationFrame(loop);
 }
 loop();

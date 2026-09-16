@@ -450,3 +450,18 @@ A static render of the default Tron world from the doorway of a mock directory, 
 ![Default world](docs/default-world.png)
 
 What the picture encodes: doorways on the far wall are sub-directories with their counts on the sign; flat panels are images, panels on a base are videos with their timeline on the floor, low slabs are documents, the cube is an archive; size is weight; the nearest band is the newest month; cyan is private and orange is public; the spheres above items are annotations, rising and glowing with popularity.
+
+
+---
+
+## Appendix B. Tap-to-zoom navigation (this branch)
+
+An alternative to drone flight, kept on the `tap-to-zoom` branch so the two can be compared.
+
+- **Space, not rooms.** Every directory is a sphere floating in space, sized by its item count, with its items on a spiral inside at 0.6 of the radius. All spheres are visible from the start position, which is far out.
+- **Tap to zoom.** Tapping a sphere dollies the camera straight in to 2.6 radii from its centre in 0.5 seconds with ease-in-out. Tapping an item dollies to 4.5 item-radii from it. Items are raycast before shells, so a tap inside a focused sphere picks the item.
+- **Back.** A ring with a chevron at the bottom right, drawn in the scene and parented to the camera, appears whenever there is somewhere to go back to. Tapping it returns to the previous view with the same 0.5 second zoom. Escape and Backspace do the same on desktop.
+- **Orbit.** A drag orbits around the current focus target at the current distance. A tap is a press under 8 pixels of movement and under half a second.
+- **Shell fade.** The shell of the sphere the camera is inside fades so it does not cross the focused item.
+
+![Tap to zoom, sphere focused](docs/tap-to-zoom-sphere.png)

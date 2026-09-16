@@ -309,7 +309,7 @@ Binds annotation channels to visual or physical channels: `buoyancy`, `pulse`, `
 Algorithms available to declarative worlds: `rooms` (treemap rooms with doors, the file-browser default), `cluster` (groups in open space), `timeline` (one axis is time), `gallery` (items on walls), `graph` (people as anchors, for explore). Each takes parameters from the manifest.
 
 ### 9.5 Motion
-`walk`, `fly`, `swim`, `teleport`. Controls are the client's, the world picks the mode and parameters.
+`fly` (default, twin-stick drone flight), `walk`, `swim`, `teleport`. Controls are the client's, the world picks the mode and parameters.
 
 ### 9.6 Player
 A world may skin the player. The player contract (§11) is fixed.
@@ -344,7 +344,7 @@ It is the fallback for every slot every other world leaves empty, and the refere
 PWA. Manifest `display: fullscreen`, `orientation: landscape`. Fullscreen and orientation lock on first tap for the browser-tab case. `viewport-fit=cover`, `touch-action: none`, `overscroll-behavior: none`. Service worker precaches the client and tier 0 and 1 of the active world.
 
 ### 11.2 Controls
-Touch: virtual stick on the left half, drag-to-look on the right half, optional gyroscope look. Desktop: WASD and mouse. Tap on an object raycasts into the scene. Hit areas on 3D controls are wider than their visible geometry.
+The default motion mode is **fly**, with drone-style twin sticks so the player can leave a room and view it from outside. Touch: the lower-left zone is the left stick, up and down for altitude, left and right for yaw; the lower-right zone is the right stick, up and down for forward and back, left and right for strafe; a drag anywhere else is free look. Movement has light inertia. The stick rings are drawn in the scene, parented to the camera, not as DOM. Desktop: WASD for forward and strafe, Q and E for down and up, arrow keys for yaw and pitch, mouse drag for free look. Optional gyroscope look later. Tap on an object raycasts into the scene. Hit areas on 3D controls are wider than their visible geometry.
 
 ### 11.3 In-world UI
 Everything is in the scene. Text is signed-distance-field font. Metadata panels are anchored to the focused item where the world says. Annotations are anchored to their target: whole-file notes with the panel, regions as markers on the image surface, ranges as markers on the 3D timeline, threads fanned from their root with accents applied. Adding an annotation is a tap on the surface or timeline, which places a marker and opens a 3D text field backed by the hidden DOM input.

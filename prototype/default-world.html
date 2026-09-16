@@ -4,12 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>ioi default world</title>
-<style>html,body{margin:0;background:#000;overflow:hidden;overscroll-behavior:none}canvas{display:block;touch-action:none;-webkit-user-select:none;user-select:none}</style>
+<style>
+html,body{margin:0;background:#000;overflow:hidden;overscroll-behavior:none}
+canvas{display:block;touch-action:none;-webkit-user-select:none;user-select:none}
+#back{position:fixed;right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));width:56px;height:56px;padding:0;border:1px solid #19e6ff;border-radius:50%;background:rgba(0,8,12,.55);color:#19e6ff;font:400 22px/1 system-ui,sans-serif;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#back:active{background:rgba(25,230,255,.18)}
+#back[hidden]{display:none}
+</style>
 <script type="importmap">
 {"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}
 </script>
 </head>
 <body>
+<button id="back" hidden aria-label="Back">&#x2039;</button>
 <script type="module">
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -56,7 +63,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffe
 renderer.setSize(W, H);
 renderer.setPixelRatio(1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.0;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -80,7 +87,6 @@ function textPlane(lines, w, color = '#19e6ff') {
   const c = document.createElement('canvas'); c.width = 1024; c.height = 256;
   const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = color;
-  ctx.shadowColor = color; ctx.shadowBlur = 24;
   ctx.font = '700 96px "DejaVu Sans", Arial, sans-serif'; ctx.fillText(lines[0], 512, lines[1] ? 92 : 128);
   if (lines[1]) { ctx.font = '400 56px "DejaVu Sans", Arial, sans-serif'; ctx.globalAlpha = 0.85; ctx.fillText(lines[1], 512, 190); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
@@ -97,7 +103,7 @@ function outlined(geo, lineColor, faceColor = FACE) {
 // ---------- items: shape by category, size by weight, colour by public, glow by heat ----------
 function itemMesh([name, cat, weight, pub, heat], u) {
   const base = pub ? ORANGE : CYAN;
-  const line = base.clone().multiplyScalar(0.7 + heat * 1.6);
+  const line = base.clone().multiplyScalar(0.55 + heat * 0.8);
   const g = new THREE.Group();
   let half = u;
   if (cat === 'image' || cat === 'carousel') {
@@ -128,10 +134,10 @@ for (const d of dirs) {
   const R = 3.2 + Math.sqrt(d.items.length) * 1.1;
   const g = new THREE.Group(); g.position.set(...d.at);
   // shell: faint fill (also the tap target) and a sparse wireframe
-  const fill = new THREE.Mesh(new THREE.SphereGeometry(R, 32, 24), new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.05, depthWrite: false }));
+  const fill = new THREE.Mesh(new THREE.SphereGeometry(R, 32, 24), new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.025, depthWrite: false }));
   fill.userData = { kind: 'dir', dir: d, R, group: g };
-  const wire = new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(R, 12, 8)), new THREE.LineBasicMaterial({ color: DIM, transparent: true, opacity: 0.55 }));
-  const equator = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, R, R, 0, Math.PI * 2, false, 0).getPoints(96).map(p => new THREE.Vector3(p.x, 0, p.y))), new THREE.LineBasicMaterial({ color: CYAN.clone().multiplyScalar(1.3) }));
+  const wire = new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(R, 10, 6)), new THREE.LineBasicMaterial({ color: DIM, transparent: true, opacity: 0.16 }));
+  const equator = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, R, R, 0, Math.PI * 2, false, 0).getPoints(96).map(p => new THREE.Vector3(p.x, 0, p.y))), new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.6 }));
   fill.userData.wire = wire;
   g.add(fill, wire, equator);
   // label above the sphere, billboarded
@@ -172,20 +178,10 @@ function focusItem(m) {
 }
 function back() { const v = stack.pop(); if (v) zoomTo(v.pos, v.target); }
 
-// ---------- back button, drawn in the scene at the bottom right ----------
-const HUD_D = 1.0;
-const backBtn = new THREE.Group();
-const disk = new THREE.Mesh(new THREE.CircleGeometry(0.075, 40), new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.10, depthTest: false, depthWrite: false }));
-const ring = new THREE.Mesh(new THREE.RingGeometry(0.066, 0.075, 40), new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
-const chevron = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.018, 0.032, 0), new THREE.Vector3(-0.018, 0, 0), new THREE.Vector3(0.018, -0.032, 0)]), new THREE.LineBasicMaterial({ color: CYAN.clone().multiplyScalar(1.8), depthTest: false }));
-for (const o of [disk, ring, chevron]) o.renderOrder = 999;
-backBtn.add(disk, ring, chevron); camera.add(backBtn);
-disk.userData = { kind: 'back' };
-function placeHud() {
-  const h = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * HUD_D, w = h * camera.aspect;
-  backBtn.position.set(w * 0.82, -h * 0.72, -HUD_D);
-  backBtn.visible = stack.length > 0;
-}
+// ---------- back button: a fixed overlay outside the scene ----------
+const backBtn = document.getElementById('back');
+backBtn.addEventListener('click', back);
+function placeHud() { backBtn.hidden = stack.length === 0; }
 
 // ---------- input: tap to zoom, drag to orbit the current target ----------
 const cv = renderer.domElement;
@@ -215,7 +211,6 @@ addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; cam
 function tap(x, y) {
   if (tween) return;
   ray.setFromCamera(new THREE.Vector2((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1), camera);
-  if (backBtn.visible && ray.intersectObject(disk, false).length) return back();
   // items first, so a tap inside a focused sphere picks the item, not the shell
   const hitItems = ray.intersectObjects(items, true);
   if (hitItems.length) { let o = hitItems[0].object; while (o && o.userData.kind !== 'item') o = o.parent; if (o) return focusItem(o); }
@@ -226,7 +221,7 @@ function tap(x, y) {
 // ---------- bloom ----------
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), 0.9, 0.55, 0.15));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), 0.22, 0.15, 0.7));   // a hint of bloom only; edges stay sharp
 composer.addPass(new OutputPass());
 
 window.__nav = () => ({ level: stack.length, pos: view.pos.toArray().map(v => +v.toFixed(2)), target: view.target.toArray().map(v => +v.toFixed(2)), zooming: !!tween });
@@ -244,8 +239,8 @@ function loop() {
   // fade the shell of the sphere the camera is inside, so it does not cross the focused item
   for (const f of spheres) {
     const inside = camera.position.distanceTo(f.userData.group.position) < f.userData.R * 1.05;
-    f.material.opacity += ((inside ? 0.0 : 0.05) - f.material.opacity) * 0.2;
-    f.userData.wire.material.opacity += ((inside ? 0.12 : 0.55) - f.userData.wire.material.opacity) * 0.2;
+    f.material.opacity += ((inside ? 0.0 : 0.025) - f.material.opacity) * 0.2;
+    f.userData.wire.material.opacity += ((inside ? 0.04 : 0.16) - f.userData.wire.material.opacity) * 0.2;
   }
   placeHud();
   composer.render();
